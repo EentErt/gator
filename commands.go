@@ -15,7 +15,7 @@ type command struct {
 }
 
 type commands struct {
-	cmd map[string]func(*state, command) error
+	function map[string]func(*state, command) error
 }
 
 func handlerLogin(s *state, cmd command) error {
@@ -30,4 +30,17 @@ func handlerLogin(s *state, cmd command) error {
 
 	fmt.Println("Username set to:", username)
 	return nil
+}
+
+func (c *commands) run(s *state, cmd command) error {
+	if f, ok := c.function[cmd.name]; ok {
+		if err := f(s, cmd); err != nil {
+			return fmt.Errorf("Error executing command:", cmd.name)
+		}
+	}
+	return nil
+}
+
+func (c *commands) register(name string, f func(*state, command) error) {
+	c.function[name] = f
 }

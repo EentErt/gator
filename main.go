@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"gator/internal/config"
+	"os"
 )
 
 func main() {
@@ -11,17 +12,24 @@ func main() {
 		fmt.Println("Error reading config:", err)
 	}
 
-	if err := configObj.SetUser("nate"); err != nil {
-		fmt.Println("Error setting user:", err)
-	} else {
-		fmt.Println("Current user set to:", configObj.CurrentUserName)
+	currentState := state{&configObj}
+
+	cmds := commands{
+		function: make(map[string]func(*state, command) error),
+	}
+	cmds.register("login", handlerLogin)
+
+	if len(os.Args) < 2 {
+		fmt.Println("Error: No commands provided")
+		os.Exit(1)
 	}
 
-	configObj, err = config.Read()
-	if err != nil {
-		fmt.Println("Error reading config after setting user:", err)
+	cmd := command{name: os.Args[1], args: os.Args[2:]}
+
+	if err := cmds.run(&currentState, cmd); err != nil {
+		fmt.Println("Error executing command:", err)
+		os.Exit(1)
 	} else {
-		fmt.Println("Current user after update:", configObj.CurrentUserName)
+		fmt.Println("Command executed successfully")
 	}
-	fmt.Println("Database URL:", configObj.DbURL)
 }
