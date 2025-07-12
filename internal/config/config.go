@@ -21,7 +21,7 @@ func Read() (Config, error) {
 
 	// Read the config file from the home directory
 	var config Config
-	configText, err := os.ReadFile(homeDir + configFileName)
+	configText, err := os.ReadFile(homeDir + "/" + configFileName)
 	if err != nil {
 		return Config{}, err
 	}
@@ -56,7 +56,7 @@ func write(c *Config) error {
 	}
 
 	// write the config to file
-	if err := os.WriteFile(homeDir+configFileName, configText, 0644); err != nil {
+	if err := os.WriteFile(homeDir+"/"+configFileName, configText, 0644); err != nil {
 		return err
 	}
 	return nil

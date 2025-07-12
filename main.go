@@ -6,21 +6,22 @@ import (
 )
 
 func main() {
-	config, err := config.Read()
+	configObj, err := config.Read()
 	if err != nil {
 		fmt.Println("Error reading config:", err)
 	}
 
-	if err := config.SetUser("nate"); err != nil {
+	if err := configObj.SetUser("nate"); err != nil {
 		fmt.Println("Error setting user:", err)
 	} else {
-		fmt.Println("Current user set to:", config.CurrentUserName)
+		fmt.Println("Current user set to:", configObj.CurrentUserName)
 	}
 
-	config, err = config.Read()
+	configObj, err = config.Read()
 	if err != nil {
 		fmt.Println("Error reading config after setting user:", err)
 	} else {
-		fmt.Println("Current user after update:", config.CurrentUserName)
+		fmt.Println("Current user after update:", configObj.CurrentUserName)
 	}
+	fmt.Println("Database URL:", configObj.DbURL)
 }
