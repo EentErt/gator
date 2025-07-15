@@ -147,14 +147,9 @@ func handlerAgg(s *state, cmd command) error {
 	return nil
 }
 
-func handlerAddFeed(s *state, cmd command) error {
+func handlerAddFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.args) < 2 {
 		return fmt.Errorf("addfeed requires a name and url")
-	}
-
-	user, err := s.db.GetUserByName(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return err
 	}
 
 	timeNow := sql.NullTime{
@@ -186,6 +181,12 @@ func handlerAddFeed(s *state, cmd command) error {
 	}); err != nil {
 		return err
 	}
+
+	// add the feed_follow entry for the
+	if err := handlerFollow(s, command{name: "follow", args: []string{cmd.args[1]}}, user); err != nil {
+		return err
+	}
+
 	if err := printFeed(s, feedName.String); err != nil {
 		return err
 	}
@@ -224,4 +225,63 @@ func handlerFeeds(s *state, cmd command) error {
 		fmt.Println("")
 	}
 	return nil
+}
+
+func handlerFollow(s *state, cmd command, user database.User) error {
+	if len(cmd.args) < 1 {
+		return fmt.Errorf("follow command requires a url")
+	}
+
+	// Get the requested feed
+	feed, err := s.db.GetFeedByUrl(context.Background(), sql.NullString{String: cmd.args[0], Valid: true})
+	if err != nil {
+		return err
+	}
+
+	// Get the current time
+	timeNow := sql.NullTime{
+		Time:  time.Now(),
+		Valid: true,
+	}
+
+	// Set up the Parameter struct for the feed_follow creation
+	Params := database.CreateFeedFollowParams{
+		CreatedAt: timeNow,
+		UpdatedAt: timeNow,
+		UserID:    uuid.NullUUID{UUID: user.ID, Valid: true},
+		FeedID:    sql.NullInt32{Int32: feed.ID, Valid: true},
+	}
+
+	newFeedFollow, err := s.db.CreateFeedFollow(context.Background(), Params)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("New Follow successful:")
+	fmt.Println("Feed:", newFeedFollow.FeedName.String)
+	fmt.Println("User:", newFeedFollow.UserName)
+	return nil
+}
+
+func handlerFollowing(s *state, cmd command, user database.User) error {
+	follows, err := s.db.GetFeedFollowsForUser(context.Background(), user.Name)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("User %s Following:\n", user.Name)
+	for _, follow := range follows {
+		fmt.Println(follow.FeedName.String)
+	}
+	return nil
+}
+
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+	return func(s *state, cmd command) error {
+		user, err := s.db.GetUserByName(context.Background(), s.cfg.CurrentUserName)
+		if err != nil {
+			return err
+		}
+		return handler(s, cmd, user)
+	}
 }
