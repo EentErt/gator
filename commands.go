@@ -276,6 +276,25 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 	return nil
 }
 
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	// get feed from url
+	feed, err := s.db.GetFeedByUrl(context.Background(), sql.NullString{String: cmd.args[0], Valid: true})
+	if err != nil {
+		return err
+	}
+
+	// setup params for delete feed follow function
+	Params := database.DeleteFeedFollowParams{
+		UserID: uuid.NullUUID{UUID: user.ID, Valid: true},
+		FeedID: sql.NullInt32{Int32: feed.ID, Valid: true},
+	}
+
+	if err := s.db.DeleteFeedFollow(context.Background(), Params); err != nil {
+		return err
+	}
+	return nil
+}
+
 func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
 	return func(s *state, cmd command) error {
 		user, err := s.db.GetUserByName(context.Background(), s.cfg.CurrentUserName)
