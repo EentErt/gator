@@ -7,6 +7,7 @@ import (
 	"gator/internal/config"
 	"gator/internal/database"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -130,21 +131,19 @@ func handlerUsers(s *state, cmd command) error {
 }
 
 func handlerAgg(s *state, cmd command) error {
-	rss, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+	if len(cmd.args) < 1 {
+		return fmt.Errorf("agg command requires a time duration")
+	}
+
+	waitTime, err := time.ParseDuration(cmd.args[0])
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(rss.Channel.Title)
-	fmt.Println(rss.Channel.Description)
-	fmt.Println(rss.Channel.Link)
-	for _, item := range rss.Channel.Item {
-		fmt.Println(item.Title)
-		fmt.Println(item.PubDate)
-		fmt.Println(item.Description)
-		fmt.Println(item.Link)
+	ticker := time.NewTicker(waitTime)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
 	}
-	return nil
 }
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
@@ -322,11 +321,86 @@ func scrapeFeeds(s *state) error {
 		return err
 	}
 
+	fmt.Println(RSS.Channel.Title)
+	for _, item := range RSS.Channel.Item {
+		publishedAt, err := parseTime(item.PubDate)
+		if err != nil {
+			// fmt.Println("failed to parse time")
+			return err
+		}
+
+		desc := sql.NullString{}
+		if item.Description != "" {
+			desc = sql.NullString{String: item.Description, Valid: true}
+		}
+
+		params := database.CreatePostParams{
+			CreatedAt:   timeNow,
+			UpdatedAt:   timeNow,
+			Title:       item.Title,
+			Url:         item.Link,
+			Description: desc,
+			PublishedAt: sql.NullTime{Time: publishedAt, Valid: true},
+			FeedID:      feed.ID,
+		}
+
+		if err := s.db.CreatePost(context.Background(), params); err != nil {
+			return err
+		}
+		fmt.Println(" -", item.Title)
+	}
+	return nil
 }
 
 func getNullTimeNow() sql.NullTime {
 	return sql.NullTime{
 		Time:  time.Now(),
 		Valid: true,
+	}
+}
+
+func parseTime(timeStamp string) (time.Layout, error) {
+	fmt.Println("Attempting to parse", timeStamp)
+
+	for _, layout := range time.Layout {
+		fmt.Println("with layout", layout)
+		output, err := time.Parse(layout, timeStamp)
+		if err == nil {
+			fmt.Println("success")
+			return output, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unable to parse time stamp")
+}
+
+func handlerBrowse(s *state, cmd command, user database.User) error {
+	limitParam := int32(2)
+	if len(cmd.args) > 0 {
+		limit, err := strconv.ParseInt(cmd.args[0], 10, 32)
+		if err != nil {
+			return err
+		}
+		limitParam = int32(limit)
+	}
+
+	params := database.GetPostsForUserParams{
+		UserID: uuid.NullUUID{UUID: user.ID, Valid: true},
+		Limit:  limitParam,
+	}
+	posts, err := s.db.GetPostsForUser(context.Background(), params)
+	if err != nil {
+		return err
+	}
+
+	printPosts(posts)
+	return nil
+}
+
+func printPosts(posts []database.GetPostsForUserRow) {
+	for i, post := range posts {
+		fmt.Println("-- Post", i+1)
+		fmt.Println(post.Title)
+		fmt.Println(post.PublishedAt.Time)
+		fmt.Println(post.Description)
 	}
 }
