@@ -11,7 +11,7 @@ import (
 )
 
 const getFeed = `-- name: GetFeed :one
-SELECT id, created_at, updated_at, name, url, user_id FROM feed WHERE name = $1
+SELECT id, created_at, updated_at, name, url, user_id, last_fetched_at FROM feed WHERE name = $1
 `
 
 func (q *Queries) GetFeed(ctx context.Context, name sql.NullString) (Feed, error) {
@@ -24,6 +24,7 @@ func (q *Queries) GetFeed(ctx context.Context, name sql.NullString) (Feed, error
 		&i.Name,
 		&i.Url,
 		&i.UserID,
+		&i.LastFetchedAt,
 	)
 	return i, err
 }

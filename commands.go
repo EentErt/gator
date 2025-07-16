@@ -152,10 +152,7 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("addfeed requires a name and url")
 	}
 
-	timeNow := sql.NullTime{
-		Time:  time.Now(),
-		Valid: true,
-	}
+	timeNow := getNullTimeNow()
 
 	feedName := sql.NullString{
 		String: cmd.args[0],
@@ -239,10 +236,7 @@ func handlerFollow(s *state, cmd command, user database.User) error {
 	}
 
 	// Get the current time
-	timeNow := sql.NullTime{
-		Time:  time.Now(),
-		Valid: true,
-	}
+	timeNow := getNullTimeNow()
 
 	// Set up the Parameter struct for the feed_follow creation
 	Params := database.CreateFeedFollowParams{
@@ -302,5 +296,37 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 			return err
 		}
 		return handler(s, cmd, user)
+	}
+}
+
+func scrapeFeeds(s *state) error {
+	feed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return err
+	}
+
+	timeNow := getNullTimeNow()
+
+	params := database.MarkFeedFetchedParams{
+		UpdatedAt:     timeNow,
+		LastFetchedAt: timeNow,
+		ID:            feed.ID,
+	}
+
+	if err := s.db.MarkFeedFetched(context.Background(), params); err != nil {
+		return err
+	}
+
+	RSS, err := fetchFeed(context.Background(), feed.Url.String)
+	if err != nil {
+		return err
+	}
+
+}
+
+func getNullTimeNow() sql.NullTime {
+	return sql.NullTime{
+		Time:  time.Now(),
+		Valid: true,
 	}
 }
