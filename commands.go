@@ -359,14 +359,13 @@ func getNullTimeNow() sql.NullTime {
 	}
 }
 
-func parseTime(timeStamp string) (time.Layout, error) {
-	fmt.Println("Attempting to parse", timeStamp)
+func parseTime(timeStamp string) (time.Time, error) {
+	layouts := []string{time.ANSIC, time.UnixDate, time.RubyDate, time.RFC822, time.RFC822Z,
+		time.RFC850, time.RFC1123, time.RFC1123Z, time.RFC3339, time.RFC3339Nano}
 
-	for _, layout := range time.Layout {
-		fmt.Println("with layout", layout)
+	for _, layout := range layouts {
 		output, err := time.Parse(layout, timeStamp)
 		if err == nil {
-			fmt.Println("success")
 			return output, nil
 		}
 	}
@@ -401,6 +400,6 @@ func printPosts(posts []database.GetPostsForUserRow) {
 		fmt.Println("-- Post", i+1)
 		fmt.Println(post.Title)
 		fmt.Println(post.PublishedAt.Time)
-		fmt.Println(post.Description)
+		fmt.Println(post.Description.String)
 	}
 }
