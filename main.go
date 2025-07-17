@@ -37,6 +37,7 @@ func main() {
 		function: make(map[string]func(*state, command) error),
 	}
 
+	// register the commands
 	cmds.register("login", handlerLogin)                             // log in as existing user
 	cmds.register("register", handlerRegister)                       // register a new user
 	cmds.register("reset", handlerReset)                             // reset the database
@@ -47,7 +48,9 @@ func main() {
 	cmds.register("follow", middlewareLoggedIn(handlerFollow))       // follow a feed
 	cmds.register("following", middlewareLoggedIn(handlerFollowing)) // get a list of followed feeds
 	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))   // unfollow a feed
-	cmds.register("browse", middlewareLoggedIn(handlerBrowse))
+	cmds.register("browse", middlewareLoggedIn(handlerBrowse))       // browse a number of posts
+
+	// If length of args is less than 2, then no command was given
 	if len(os.Args) < 2 {
 		fmt.Println("Error: No commands provided")
 		os.Exit(1)
@@ -55,6 +58,7 @@ func main() {
 
 	cmd := command{name: os.Args[1], args: os.Args[2:]}
 
+	// run the given command
 	if err := cmds.run(&State, cmd); err != nil {
 		fmt.Println("Error executing command:", err)
 		os.Exit(1)
